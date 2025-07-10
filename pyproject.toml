@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "genome-circos"
+version = "0.0.0"
+description = "Genome circos python package."
+authors = ["Wenlin Xu <wenlinxu.njfu@outlook.com>"]
+readme = "README.md"
+packages = [{include = "genome_circos"}]
+
+[tool.poetry.dependencies]
+python = "^3.8"
+matplotlib = "^3.7.5"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
