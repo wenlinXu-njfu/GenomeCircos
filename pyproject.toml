@@ -1,8 +1,10 @@
 [tool.poetry]
 name = "genome-circos"
-version = "0.0.0"
+version = "0.0.1"
 description = "Genome circos python package."
 authors = ["Wenlin Xu <wenlinxu.njfu@outlook.com>"]
+homepage = "https://github.com/wenlinXu-njfu/GenomeCircos"
+license = "MIT"
 readme = "README.md"
 packages = [{include = "genome_circos"}]
 

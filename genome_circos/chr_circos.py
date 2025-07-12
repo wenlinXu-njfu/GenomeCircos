@@ -13,12 +13,27 @@ import matplotlib.pyplot as plt
 
 
 class ChromosomeCircos:
-    """Draw genome example figure."""
-    def __init__(self, chr_len_file: str):
+    """
+    Draw genome example figure.
+    :param chr_len_file: Chromosome length file. (ChrName\\tChrLen\\tEtc)
+    :param font: Global font of figure.
+    :param figsize: Figure dimension (width, height) in inches.
+    :param dpi: Dots per inch.
+    """
+    def __init__(
+        self,
+        chr_len_file: str,
+        font: str = None,
+        figsize: Tuple[float, float] = (10, 8),
+        dpi: int = 100
+    ):
         chr_len_dict, chr_theta_dict, chr_width_dict = self.__get_chr_theta_width(chr_len_file)
         self.chr_len_dict = chr_len_dict
         self.chr_theta_dict = chr_theta_dict
         self.chr_width_dict = chr_width_dict
+        self.font = font
+        self.figsize = figsize
+        self.dpi = dpi
 
     @staticmethod
     def __get_chr_theta_width(chr_len_file: str) -> Tuple[Dict[str, int], Dict[str, float], Dict[str, float]]:
@@ -65,7 +80,7 @@ class ChromosomeCircos:
         else:
             bottom_dict = {
                 chr_name: bottom
-                for chr_name, bottom in self.chr_len_dict.keys()
+                for chr_name in self.chr_len_dict.keys()
             }
         return bottom_dict
 
@@ -74,18 +89,18 @@ class ChromosomeCircos:
         axes: matplotlib.axes.Axes,
         height: Union[int, float],
         bottom: Union[int, float, list],
-        facecolor: str = 'white',
-        edgecolor: str = 'black',
-        linewidth: Union[int, float] = 0.5
+        face_color: str = 'white',
+        edge_color: str = 'black',
+        line_width: Union[int, float] = 0.5
     ):
         axes.bar(
             self.chr_theta_dict.values(),
             height,
             self.chr_width_dict.values(),
             bottom=bottom,
-            facecolor=facecolor,
-            edgecolor=edgecolor,
-            linewidth=linewidth,
+            facecolor=face_color,
+            edgecolor=edge_color,
+            linewidth=line_width,
         )
         return axes
 
@@ -96,8 +111,7 @@ class ChromosomeCircos:
         face_color: str = 'lightgrey',
         edge_color: str = 'black',
         line_width: Union[int, float] = 0.5,
-        font_size: Union[int, float] = 6,
-        figure_size: Tuple[float, float] = (6.4, 4.8)
+        font_size: Union[int, float] = 6
     ) -> matplotlib.axes.Axes:
         """
         Draw chromosome bar.
@@ -107,12 +121,14 @@ class ChromosomeCircos:
         :param edge_color: Edge color of each chromosome bar.
         :param line_width: Line width of each chromosome bar.
         :param font_size: Font size of each chromosome bar.
-        :param figure_size: Figure size.
         :return: tuple(axes: matplotlib.axes.Axes, BarContainer: matplotlib.container.BarContainer)
                  axes -> Axes object in matplotlib.
                  BarContainer -> Chromosome bar container.
         """
-        fig = plt.figure(figsize=figure_size, dpi=200)
+        plt.rcParams['pdf.fonttype'] = 42
+        if self.font:
+            plt.rcParams['font.family'] = self.font
+        fig = plt.figure(figsize=self.figsize, dpi=self.dpi)
         ax = fig.add_subplot(111, polar=True, frame_on=False)
         ax.get_xaxis().set_visible(False)  # hide x-axis
         ax.get_yaxis().set_visible(False)  # hide y-axis
@@ -151,25 +167,26 @@ class ChromosomeCircos:
         self,
         axes: matplotlib.axes.Axes,
         stat_file: str,
-        bottom: Union[int, float, list] = 10.05,
+        bottom: Union[int, float, list] = 11.05,
         frame: bool = False
     ) -> matplotlib.axes.Axes:
         """
         Draw the statistical bar chart.
         :param axes: Axes object of matplotlib.axes.Axes.
-        :param stat_file: Feature statistics file. (Chr_num\\tFeature_type\\tCount\\tColor\\n)
+        :param stat_file: Feature statistics file. (ChrName\\tFeatureType\\tCount\\tColor\\n)
         :param bottom: Y-axis coordinate bottom of statistical bar chart for each chromosome.
         :param frame: Show frame.
         :return: axes -> Axes object of matplotlib.axes.Axes.
         """
+        bottom_dict = self.__get_bottom_dict(bottom)
         if frame:
             self.__bar_frame(
                 axes=axes,
-                height=1.05,
-                bottom=bottom,
-                facecolor='white',
-                edgecolor='black',
-                linewidth=0.4
+                height=1.1,
+                bottom=[i - 0.05 for i in bottom_dict.values()],
+                face_color='white',
+                edge_color='black',
+                line_width=0.5
             )
 
         stat_dict = {}  # {Chr01: {'type': [str, ...], 'count': [int, ...], 'color': [str, ...]}, ...}
@@ -188,7 +205,6 @@ class ChromosomeCircos:
 
         j = 0
         type_set = set()
-        bottom_dict = self.__get_bottom_dict(bottom)
         for chr_name, d in stat_dict.items():
             total_bar_num = len(d['type']) + 2
             chr_theta, chr_width = self.chr_theta_dict[chr_name], self.chr_width_dict[chr_name]
@@ -219,24 +235,28 @@ class ChromosomeCircos:
         self,
         gene_density_file: str,
         axes: matplotlib.axes.Axes,
-        bottom: Union[int, float, list] = 7.7,
+        bottom: Union[int, float, list] = 8.5,
+        line_width: Union[int, float] = 0.3,
         color: str = None,
-        label: str = 'gene density'
+        label: str = 'gene density',
+        frame: bool = True
     ) -> matplotlib.axes.Axes:
         """
         Draw gene density with line.
-        :param gene_density_file: Gene density file. (Chr_num\\tStart\\tEnd\\tCount\\n)
+        :param gene_density_file: Gene density file. (ChrName\\tStart\\tEnd\\tCount\\n)
         :param axes: Axes object of matplotlib.axes.Axes.
         :param bottom: Y-axis coordinate bottom of gene density chart for each chromosome.
+        :param line_width: Gene density curve width for each chromosome.
         :param color: Gene density plot color.
         :param label: Gene density plot label.
+        :param frame: Whether draw borders.
         :return: axes -> Axes object of matplotlib.axes.Axes.
         """
         y = []
-        j = 0
         line_count = 0
         label_set = set()
         current_chr = None
+        bottom_dict = self.__get_bottom_dict(bottom)
         total_line = sum(1 for _ in open(gene_density_file))
         with open(gene_density_file) as f:
             for line in f:
@@ -248,58 +268,41 @@ class ChromosomeCircos:
                         y.append(float(split[-1]))
                     else:
                         if current_chr != split[0]:
-                            if isinstance(bottom, list):
-                                current_bottom = bottom[j]
-                                j += 1
-                            else:
-                                current_bottom = bottom
+                            current_bottom = bottom_dict[current_chr]
                             x = linspace(
                                 start=self.chr_theta_dict[current_chr] - self.chr_width_dict[current_chr] / 2,
                                 stop=self.chr_theta_dict[current_chr] + self.chr_width_dict[current_chr] / 2,
                                 num=len(y)
                             )
-                            y = [current_bottom + 0.1 + i / max(y) for i in y]
+                            y = [current_bottom + 0.05 + i / max(y) for i in y]
                             if label not in label_set:
                                 _label = label
                                 label_set.add(_label)
                             else:
                                 _label = None
-                            axes.plot(x, y, linewidth=0.3, color=color, label=_label)
-                            axes.bar(
-                                self.chr_theta_dict[current_chr],
-                                1.1,
-                                self.chr_width_dict[current_chr],
-                                current_bottom,
-                                color='w',
-                                edgecolor='k',
-                                linewidth=0.5
-                            )
+                            axes.plot(x, y, linewidth=line_width, color=color, label=_label)
                             current_chr = split[0]
                             y = [float(line.strip().split('\t')[-1])]
                         else:
                             y.append(float(line.strip().split('\t')[-1]))
                 else:
-                    if isinstance(bottom, list):
-                        current_bottom = bottom[j]
-                        j += 1
-                    else:
-                        current_bottom = bottom
+                    current_bottom = bottom_dict[current_chr]
                     x = linspace(
                         start=self.chr_theta_dict[current_chr] - self.chr_width_dict[current_chr] / 2,
                         stop=self.chr_theta_dict[current_chr] + self.chr_width_dict[current_chr] / 2,
                         num=len(y)
                     )
-                    y = [current_bottom + 0.1 + i / max(y) for i in y]
-                    axes.plot(x, y, linewidth=0.3, color=color)
-                    axes.bar(
-                        self.chr_theta_dict[current_chr],
-                        1.1,
-                        self.chr_width_dict[current_chr],
-                        current_bottom,
-                        color='w',
-                        edgecolor='k',
-                        linewidth=0.5
-                    )
+                    y = [current_bottom + 0.05 + i / max(y) for i in y]
+                    axes.plot(x, y, linewidth=line_width, color=color)
+        if frame:
+            self.__bar_frame(
+                axes=axes,
+                height=1.15,
+                bottom=[i - 0.05 for i in bottom_dict.values()],
+                face_color='white',
+                edge_color='black',
+                line_width=0.5
+            )
         return axes
 
 # link method===========================================================================================================
@@ -356,7 +359,7 @@ class ChromosomeCircos:
         alpha: float = 0.5
     ) -> matplotlib.axes.Axes:
         """
-        Connect the two loci of the genome using a Bezier curve.
+        Connect the two loci of the genome using a Bézier curve.
         :param axes: Polar coordinates object (type=matplotlib.axes.Axes)
         :param chr1: Chromosome name of loci 1. (type=str)
         :param s1: The start position of the chromosome where locus 1 is located. (type=int)
@@ -366,7 +369,7 @@ class ChromosomeCircos:
         :param s2: The start position of the chromosome where locus 2 is located. (type=int)
         :param e2: The end position of the chromosome where locus 2 is located. (type=int)
         :param y2: The y-polar coordinates of point P2. (type=float)
-        :param line_width: Line width. (type=float, default=0.08)
+        :param line_width: Line width. (type=float, default=0.6)
         :param line_color: Line color. (type=str, default='grey')
         :param label: Line2D label. (type=str, default=None)
         :param alpha: Line alpha. (type=float, default=0.5)
@@ -383,9 +386,9 @@ class ChromosomeCircos:
                 self.__coordinates_conversion(x2, y2)
             ]
         )
-        # Get the coordinates of the points on the bezier curve.
+        # Get the coordinates of the points on the Bézier curve.
         x, y = self.__bezier_curve(P0, P1, P2)
-        # Draw the bezier curve.
+        # Draw the Bézier curve.
         axes.plot(
             x,
             y,
@@ -405,6 +408,15 @@ class ChromosomeCircos:
         line_width: float = 0.6,
         alpha: float = 0.5
     ):
+        """
+        Batch connect the two loci of the genome using a Bézier curve.
+        :param axes: Polar coordinates object.
+        :param link_file: Associated site file. (ChrName\\tStart\\tEnd\\tChrName\\tStart\\tEnd\\tColor\\tLabel)
+        :param bottom: Y-axis coordinate of Bézier curve for each chromosome.
+        :param line_width: Bézier curve width.
+        :param alpha: Bézier curve transparency.
+        :return: axes -> matplotlib.axes.Axes.
+        """
         color_set = set()
         label_set = set()
         bottom_dict = self.__get_bottom_dict(bottom)
