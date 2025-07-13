@@ -1,3 +1,4 @@
+[![PyPI - Version](https://img.shields.io/pypi/v/genome-circos)](https://pypi.org/project/genome-circos/)
 # GenomeCircos: Genome circos python package.
 
 ## Install
@@ -113,7 +114,7 @@ plt.savefig('example/6.png', bbox_inches='tight')
 ```python
 cc.links(
     axes=ax,
-    link_file='example/link.txt',  # 
+    link_file='example/link.txt',  # associated site file (ChrName\tStart\tEnd\tChrName\tStart\tEnd\tColor\tLabel)
     bottom=[i - 3.1 for i in bottom],
     line_width=0.6,
     alpha=0.5
