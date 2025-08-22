@@ -1,6 +1,6 @@
 """
 File: chr_circos.py
-Description: Instance a chromosome example plot object.
+Description: Instance a chromosome circos plot object.
 CreateDate: 2025/7/9
 Author: xuwenlin
 E-mail: wenlinxu.njfu@outlook.com
@@ -8,14 +8,16 @@ E-mail: wenlinxu.njfu@outlook.com
 from typing import Union, Tuple, List, Dict
 from math import log2, cos, sin
 from numpy import pi, linspace, array
+from pandas import read_csv
 import matplotlib
 import matplotlib.pyplot as plt
-
+from matplotlib.collections import LineCollection
 
 class ChromosomeCircos:
     """
-    Draw genome example figure.
+    Draw genome circos figure.
     :param chr_len_file: Chromosome length file. (ChrName\\tChrLen\\tEtc)
+    :param spacing: Set the spacing between chromosomes to be one quarter (spacing=4) of the shortest chromosome.
     :param font: Global font of figure.
     :param figsize: Figure dimension (width, height) in inches.
     :param dpi: Dots per inch.
@@ -23,20 +25,22 @@ class ChromosomeCircos:
     def __init__(
         self,
         chr_len_file: str,
+        spacing: int = 4,
         font: str = None,
         figsize: Tuple[float, float] = (10, 8),
         dpi: int = 100
     ):
+        self.spacing = spacing
         chr_len_dict, chr_theta_dict, chr_width_dict = self.__get_chr_theta_width(chr_len_file)
         self.chr_len_dict = chr_len_dict
         self.chr_theta_dict = chr_theta_dict
         self.chr_width_dict = chr_width_dict
-        self.font = font
+        self.figure = None
         self.figsize = figsize
         self.dpi = dpi
+        self.font = font
 
-    @staticmethod
-    def __get_chr_theta_width(chr_len_file: str) -> Tuple[Dict[str, int], Dict[str, float], Dict[str, float]]:
+    def __get_chr_theta_width(self, chr_len_file: str) -> Tuple[Dict[str, int], Dict[str, float], Dict[str, float]]:
         """
         Get theta angle and width of each chromosome bar.
         :return: tuple(raw_chr_len_dict: dict, chr_theta_dict: dict, chr_width_dict: dict)
@@ -53,7 +57,7 @@ class ChromosomeCircos:
 
         # Calculate length percentage of each chromosome.
         chr_width_dict = {}
-        each_space_len = min(raw_chr_len_dict.values()) / 6
+        each_space_len = min(raw_chr_len_dict.values()) / self.spacing
         total_space_len = each_space_len * len(raw_chr_len_dict.keys())
         for chr_name, chr_len in raw_chr_len_dict.items():
             chr_width_dict[chr_name] = 2 * pi * chr_len / (sum(raw_chr_len_dict.values()) + total_space_len)
@@ -71,7 +75,18 @@ class ChromosomeCircos:
 
         return raw_chr_len_dict, chr_theta_dict, chr_width_dict
 
-    def __get_bottom_dict(self, bottom: Union[int, float, list]):
+    def __loci_to_polar(
+        self,
+        chr_name: str,
+        start: int,
+        end: int
+    ) -> float:
+        """Convert genome loci to polar coordinates radian."""
+        angle = self.chr_theta_dict[chr_name] - self.chr_width_dict[chr_name] / 2
+        x = (start + end) / 2 / self.chr_len_dict[chr_name] * self.chr_width_dict[chr_name] + angle
+        return x
+
+    def __get_bottom_dict(self, bottom: Union[int, float, list]) -> dict:
         if isinstance(bottom, list):
             bottom_dict = {
                 chr_name: _bottom
@@ -92,7 +107,7 @@ class ChromosomeCircos:
         face_color: str = 'white',
         edge_color: str = 'black',
         line_width: Union[int, float] = 0.5
-    ):
+    ) -> matplotlib.axes.Axes:
         axes.bar(
             self.chr_theta_dict.values(),
             height,
@@ -103,6 +118,9 @@ class ChromosomeCircos:
             linewidth=line_width,
         )
         return axes
+
+    def save(self, out_file: str = 'GenomeCircos.pdf'):
+        self.figure.savefig(out_file, bbox_inches='tight')
 
     def chr_bar(
         self,
@@ -128,8 +146,8 @@ class ChromosomeCircos:
         plt.rcParams['pdf.fonttype'] = 42
         if self.font:
             plt.rcParams['font.family'] = self.font
-        fig = plt.figure(figsize=self.figsize, dpi=self.dpi)
-        ax = fig.add_subplot(111, polar=True, frame_on=False)
+        self.figure = plt.figure(figsize=self.figsize, dpi=self.dpi)
+        ax = self.figure.add_subplot(111, polar=True, frame_on=False)
         ax.get_xaxis().set_visible(False)  # hide x-axis
         ax.get_yaxis().set_visible(False)  # hide y-axis
 
@@ -301,22 +319,75 @@ class ChromosomeCircos:
                 bottom=[i - 0.05 for i in bottom_dict.values()],
                 face_color='white',
                 edge_color='black',
-                line_width=0.5
+                line_width=line_width
             )
         return axes
 
-# link method===========================================================================================================
-    def __loci_to_polar(
+    def plot2(
         self,
-        chr_name: str,
-        start: int,
-        end: int
-    ) -> float:
-        """Convert genome loci to polar coordinates radian."""
-        angle = self.chr_theta_dict[chr_name] - self.chr_width_dict[chr_name] / 2
-        x = (start + end) / 2 / self.chr_len_dict[chr_name] * self.chr_width_dict[chr_name] + angle
-        return x
+        gene_density_file: str,
+        axes: matplotlib.axes.Axes,
+        bottom: Union[int, float, list] = 7.5,
+        height: float = 1,
+        linewidths: float = 0.1,
+        cmap: str = 'cool',
+        label: str = 'gene density',
+        n_min: int = 0,
+        n_max: int = 100
+    ) -> matplotlib.axes.Axes:
+        """
+        Draw gene density with line.
+        :param gene_density_file: Gene density file. (ChrName\\tStart\\tEnd\\tCount\\n)
+        :param axes: Axes object of matplotlib.axes.Axes.
+        :param bottom: Y-axis coordinate bottom of gene density chart for each chromosome.
+        :param height: Heatmap height.
+        :param linewidths: Gene density heatmap curve width for each chromosome.
+        :param cmap: Gene density plot color.
+        :param label: Gene density plot label.
+        :param n_min: The data value mapped to the bottom of the colormap (i.e. 0).
+        :param n_max: The data value mapped to the top of the colormap (i.e. 1).
+        :return: axes -> Axes object of matplotlib.axes.Axes.
+        """
+        bottom_dict = self.__get_bottom_dict(bottom)
+        df = read_csv(gene_density_file, sep='\t', header=None, names=['Chr', 'Start', 'End', 'Count'])
+        df['X-coordinate'] = df.apply(func=lambda row: self.__loci_to_polar(row.Chr, row.Start, row.End), axis=1)
+        for chr_name in df.Chr.unique():
+            df.loc[df.Chr == chr_name, 'Y-coordinate'] = bottom_dict[chr_name]
 
+        segments = []
+        for x, y in zip(df['X-coordinate'], df['Y-coordinate']):
+            line = [(x, y), (x, y + height)]
+            segments.append(line)
+        # plot heatmap
+        cmap = plt.cm.get_cmap(cmap)
+        norm = plt.Normalize(vmin=n_min, vmax=n_max)
+        colors = cmap(norm(df.Count))
+        lc = LineCollection(
+            segments,
+            colors=colors,
+            linewidths=linewidths,
+            capstyle='butt',
+            alpha=0.8
+        )
+        axes.add_collection(lc)
+        # add color bar
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+        sm.set_array([])
+        figure_width, figure_height = self.figsize
+        aspect_ratio = figure_width / figure_height
+        cbar = plt.colorbar(
+            mappable=sm,
+            ax=axes,
+            pad=0.0005,
+            orientation='horizontal',
+            shrink=0.5,
+            aspect=aspect_ratio * 80,
+            label=label
+        )
+        cbar.ax.set_xticks([n_min, n_max], ['low', 'high'])
+        return axes
+
+# link method===========================================================================================================
     @staticmethod
     def __coordinates_conversion(theta: float, radius: float) -> List[float]:
         """
@@ -327,7 +398,7 @@ class ChromosomeCircos:
         return [x, y]
 
     @staticmethod
-    def __bezier_curve(P0, P1, P2):
+    def __bezier_curve(P0, P1, P2) -> tuple:
         """
         Define a second-order Bézier curve.
         :param P0: A point with known coordinates.
@@ -407,7 +478,7 @@ class ChromosomeCircos:
         bottom: Union[int, float, list] = 7,
         line_width: float = 0.6,
         alpha: float = 0.5
-    ):
+    ) -> matplotlib.axes.Axes:
         """
         Batch connect the two loci of the genome using a Bézier curve.
         :param axes: Polar coordinates object.
@@ -445,3 +516,4 @@ class ChromosomeCircos:
                     label=label,
                     alpha=alpha
                 )
+        return axes

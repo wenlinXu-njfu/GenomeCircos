@@ -1,20 +1,33 @@
 [![PyPI - Version](https://img.shields.io/pypi/v/genome-circos)](https://pypi.org/project/genome-circos/)
-# GenomeCircos: Genome circos python package.
+# GenomeCircos: Genome circos diagram python package
 
 ## Install
 ```shell
-pip install genome-circos
+pip install genome-circos --upgrade
 ```
+
+# Change logs
+## v0.2.0
+- New
+  - New attributions of ChromosomeCircos:
+    - spacing: Set the spacing between chromosomes to be one quarter (spacing=4) of the shortest chromosome.
+  - New methods of ChromosomeCircos:
+    - plot2: show feature density using heatmap.
+    - save: Save the image.
+- Modified
+  - Null
+- Deleted
+  - Null
 
 ## Usage example
 ### 1. Show chromosome.
 #### Place all the chromosomes on the same ring.
 ```python
-import matplotlib.pyplot as plt
 from genome_circos import ChromosomeCircos
 
 cc = ChromosomeCircos(
     chr_len_file='example/chr_len.txt',  # chromosome length file (ChrName\tChrLen\tEtc)
+    spacing=4,  # set the spacing between chromosomes to be one quarter of the shortest chromosome
     font=None,  # use default font of matplotlib.rcParams['font.family']
     figsize=(10, 8),  # figure dimension (width, height) in inches
     dpi=300  # dots per inch
@@ -29,10 +42,20 @@ ax = cc.chr_bar(
     font_size=6  # chromosome name font size
 )
 
-plt.legend(loc=(0.999, 0.9))
-plt.savefig('example/1.png', bbox_inches='tight')
+ax.legend(loc=(0.999, 0.9))
+cc.save('example/1.png')
 ```
 ![image](example/1.png)
+#### List all available fonts on your system.
+```python
+import matplotlib.font_manager as fm
+
+all_fonts = fm.findSystemFonts()
+font_names = [f.name for f in fm.fontManager.ttflist]
+unique_fonts = sorted(set(font_names))
+for idx, font in enumerate(unique_fonts, 1):
+    print(f"{idx}. {font}")
+```
 #### Make some chromosomes protrude outward.
 ```python
 bottom = [9, 9, 9, 9, 9, 10, 9, 9, 9, 9, 11, 9, 9, 9, 9, 9, 9, 9, 10]
@@ -46,8 +69,8 @@ ax = cc.chr_bar(
     font_size=6
 )
 
-plt.legend(loc=(0.999, 0.9))
-plt.savefig('example/2.png', bbox_inches='tight')
+ax.legend(loc=(0.999, 0.9))
+cc.save('example/2.png')
 ```
 ![image](example/2.png)
 
@@ -60,8 +83,8 @@ cc.bar(
     frame=True  # add borders to the bar charts on each chromosome
 )
 
-plt.legend(loc=(0.999, 0.7))
-plt.savefig('example/3.png', bbox_inches='tight')
+ax.legend(loc=(0.999, 0.7))
+cc.save('example/3.png')
 ```
 ![image](example/3.png)
 Or move the bar chart to the inner circle.
@@ -73,8 +96,8 @@ cc.bar(
     frame=True
 )
 
-plt.legend(loc=(0.999, 0.7))
-plt.savefig('example/4.png', bbox_inches='tight')
+ax.legend(loc=(0.999, 0.7))
+cc.save('example/4.png')
 ```
 ![image](example/4.png)
 
@@ -90,8 +113,8 @@ cc.plot(
     frame=True  # enable borders
 )
 
-plt.legend(loc=(0.999, 0.6))
-plt.savefig('example/5.png', bbox_inches='tight')
+ax.legend(loc=(0.999, 0.6))
+cc.save('example/5.png')
 ```
 ![image](example/5.png)
 #### Show circRNA density.
@@ -105,8 +128,8 @@ cc.plot(
     frame=True
 )
 
-plt.legend(loc=(0.999, 0.6))
-plt.savefig('example/6.png', bbox_inches='tight')
+ax.legend(loc=(0.999, 0.6))
+cc.save('example/6.png')
 ```
 ![image](example/6.png)
 
@@ -120,24 +143,24 @@ cc.links(
     alpha=0.5
 )
 
-plt.legend(loc=(0.999, 0.6))
-plt.savefig('example/7.png', bbox_inches='tight')
+ax.legend(loc=(0.999, 0.6))
+cc.save('example/7.png')
 ```
 ![image](example/7.png)
 
 ### 5. All steps.
 ```python
-import matplotlib.pyplot as plt
 from genome_circos import ChromosomeCircos
 
 cc = ChromosomeCircos(
     chr_len_file='example/chr_len.txt',
+    spacing=4,
     font=None,  # use default font of matplotlib.rcParams['font.family']
     figsize=(10, 8),
     dpi=300
 )
 
-bottom = [9, 9, 9, 9, 9, 10, 9, 9, 9, 9, 11, 9, 9, 9, 9, 9, 9, 9, 10]
+bottom = [10, 10, 10, 10, 10, 11, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 11]
 
 ax = cc.chr_bar(
     height=1,
@@ -155,34 +178,54 @@ cc.bar(
     frame=False  # disable borders
 )
 
+# show repeat sequence density using curve
 cc.plot(
-    gene_density_file='example/gene_density.txt',
+    gene_density_file='example/repeat_density.txt',
     axes=ax,
-    bottom=[i - 1.5 for i in bottom],
+    bottom=[i - 3.6 for i in bottom],
+    line_width=0.5,
     color='#87CEEB',
-    label='gene density',
-    frame=True  # enable borders
-)
-
-cc.plot(
-    gene_density_file='example/circ_density.txt',
-    axes=ax,
-    bottom=[i - 3 for i in bottom],
-    color='#FFC125',
-    label='circRNA density',
+    label='repeat sequence density',
     frame=True  # enable borders
 )
 
 cc.links(
     axes=ax,
     link_file='example/link.txt',
-    bottom=[i - 3.1 for i in bottom],
-    line_width=0.6,
+    bottom=[i - 3.8 for i in bottom],
+    line_width=0.8,
     alpha=0.5
 )
 
-plt.legend(loc=(0.999, 0.6))
-plt.savefig('example/8.png', bbox_inches='tight')
+# show gene density using heatmap
+# note: plot2 must be placed at the very end
+cc.plot2(
+    gene_density_file='example/gene_density.txt',
+    axes=ax,
+    bottom=[i - 1 for i in bottom],
+    height=0.5,  # heatmap height
+    linewidths=1,  # gene density heatmap curve width for each chromosome
+    cmap='cool',  # color map, see https://matplotlib.org/stable/gallery/color/colormap_reference.html
+    label='gene density',
+    n_min=0,  # the data value mapped to the bottom of the colormap (i.e. 0)
+    n_max=80  # the data value mapped to the top of the colormap (i.e. 1).
+)
+
+# show circRNA density using heatmap
+cc.plot2(
+    gene_density_file='example/gene_density.txt',
+    axes=ax,
+    bottom=[i - 2 for i in bottom],
+    height=0.5,
+    linewidths=1,
+    cmap='rainbow',
+    label='circRNA density',
+    n_min=0,
+    n_max=80
+)
+
+ax.legend(loc=(0.999, 0.6))
+cc.save('example/8.png')
 ```
 ![image](example/8.png)
 
