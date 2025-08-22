@@ -160,7 +160,7 @@ cc = ChromosomeCircos(
     dpi=300
 )
 
-bottom = [10, 10, 10, 10, 10, 11, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 10, 11]
+bottom = [10, 10, 10, 10, 10, 11, 10, 10, 10, 10, 12, 10, 10, 10, 10, 10, 10, 10, 11]
 
 ax = cc.chr_bar(
     height=1,
@@ -205,7 +205,7 @@ cc.plot2(
     bottom=[i - 1 for i in bottom],
     height=0.5,  # heatmap height
     linewidths=1,  # gene density heatmap curve width for each chromosome
-    cmap='cool',  # color map, see https://matplotlib.org/stable/gallery/color/colormap_reference.html
+    cmap='rainbow',  # color map, see https://matplotlib.org/stable/gallery/color/colormap_reference.html
     label='gene density',
     n_min=0,  # the data value mapped to the bottom of the colormap (i.e. 0)
     n_max=80  # the data value mapped to the top of the colormap (i.e. 1).
@@ -213,15 +213,15 @@ cc.plot2(
 
 # show circRNA density using heatmap
 cc.plot2(
-    gene_density_file='example/gene_density.txt',
+    gene_density_file='example/circ_density.txt',
     axes=ax,
     bottom=[i - 2 for i in bottom],
     height=0.5,
     linewidths=1,
-    cmap='rainbow',
+    cmap='cool',
     label='circRNA density',
     n_min=0,
-    n_max=80
+    n_max=3
 )
 
 ax.legend(loc=(0.999, 0.6))
