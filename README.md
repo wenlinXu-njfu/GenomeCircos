@@ -6,14 +6,28 @@
 pip install genome-circos --upgrade
 ```
 
-# Change logs
-## v0.2.0
+## Change logs
+### v0.3.0
+- New
+  - New parameter of ChromosomeCircos:
+    - font_size: global font size.
+  - New parameter of bar method:
+    - height: height of statistical bar.
+  - New parameter of plot method:
+    - height: curve height.
+  - New method of ChromosomeCircos:
+    - identity_heatmap: show sequence identity on each chromosome.
+- Modified
+  - Rename the "plot2" method to "density_heatmap".
+- Deleted
+  - Null
+### v0.2.0
 - New
   - New attributions of ChromosomeCircos:
-    - spacing: Set the spacing between chromosomes to be one quarter (spacing=4) of the shortest chromosome.
+    - spacing: set the spacing between chromosomes to be one quarter (spacing=4) of the shortest chromosome.
   - New methods of ChromosomeCircos:
     - plot2: show feature density using heatmap.
-    - save: Save the image.
+    - save: save the image.
 - Modified
   - Null
 - Deleted
@@ -29,6 +43,7 @@ cc = ChromosomeCircos(
     chr_len_file='example/chr_len.txt',  # chromosome length file (ChrName\tChrLen\tEtc)
     spacing=4,  # set the spacing between chromosomes to be one quarter of the shortest chromosome
     font=None,  # use default font of matplotlib.rcParams['font.family']
+    font_size=8,  # global font size
     figsize=(10, 8),  # figure dimension (width, height) in inches
     dpi=300  # dots per inch
 )
@@ -154,35 +169,50 @@ from genome_circos import ChromosomeCircos
 
 cc = ChromosomeCircos(
     chr_len_file='example/chr_len.txt',
-    spacing=4,
-    font=None,  # use default font of matplotlib.rcParams['font.family']
+    spacing=3,
+    font=None,
+    font_size=8,
     figsize=(10, 8),
     dpi=300
 )
 
-bottom = [10, 10, 10, 10, 10, 11, 10, 10, 10, 10, 12, 10, 10, 10, 10, 10, 10, 10, 11]
+bottom = [15, 15, 15, 15, 15, 17, 15, 15, 15, 15, 18, 15, 15, 15, 15, 15, 15, 15, 17]
 
 ax = cc.chr_bar(
-    height=1,
     bottom=bottom,
+    height=1,
     face_color='lightgrey',
     edge_color='black',
     line_width=0.4,
     font_size=6
 )
 
+# show sequence identity
+# note: this step may run slowly, please be patient and wait
+cc.identity_heatmap(
+    cis_acting_file='example/region_identity.txt',
+    matches_cutoff=3000,
+    axes=ax,
+    bottom=[i + 1.3 for i in bottom],
+    height=3,
+    marker_size=0.01,
+    cmap='YlOrRd'
+)
+
 cc.bar(
     axes=ax,
     stat_file='example/stat.txt',
-    bottom=[i + 1.05 for i in bottom],
-    frame=False  # disable borders
+    bottom=[i - 1.5 for i in bottom],
+    height=1,
+    frame=True  # disable borders
 )
 
-# show repeat sequence density using curve
+# show repeat sequence density curve
 cc.plot(
     gene_density_file='example/repeat_density.txt',
     axes=ax,
-    bottom=[i - 3.6 for i in bottom],
+    bottom=[i - 5.7 for i in bottom],
+    height=1,
     line_width=0.5,
     color='#87CEEB',
     label='repeat sequence density',
@@ -192,18 +222,18 @@ cc.plot(
 cc.links(
     axes=ax,
     link_file='example/link.txt',
-    bottom=[i - 3.8 for i in bottom],
+    bottom=[i - 5.9 for i in bottom],
     line_width=0.8,
     alpha=0.5
 )
 
-# show gene density using heatmap
+# show gene density heatmap
 # note: plot2 must be placed at the very end
-cc.plot2(
+cc.density_heatmap(
     gene_density_file='example/gene_density.txt',
     axes=ax,
-    bottom=[i - 1 for i in bottom],
-    height=0.5,  # heatmap height
+    bottom=[i - 2.8 for i in bottom],
+    height=0.8,  # heatmap height
     linewidths=1,  # gene density heatmap curve width for each chromosome
     cmap='rainbow',  # color map, see https://matplotlib.org/stable/gallery/color/colormap_reference.html
     label='gene density',
@@ -211,12 +241,12 @@ cc.plot2(
     n_max=80  # the data value mapped to the top of the colormap (i.e. 1).
 )
 
-# show circRNA density using heatmap
-cc.plot2(
+# show circRNA density heatmap
+cc.density_heatmap(
     gene_density_file='example/circ_density.txt',
     axes=ax,
-    bottom=[i - 2 for i in bottom],
-    height=0.5,
+    bottom=[i - 4.1 for i in bottom],
+    height=0.8,
     linewidths=1,
     cmap='cool',
     label='circRNA density',

@@ -6,9 +6,10 @@ Author: xuwenlin
 E-mail: wenlinxu.njfu@outlook.com
 """
 from typing import Union, Tuple, List, Dict
+from functools import partial
 from math import log2, cos, sin
 from numpy import pi, linspace, array
-from pandas import read_csv
+import pandas
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
@@ -27,9 +28,14 @@ class ChromosomeCircos:
         chr_len_file: str,
         spacing: int = 4,
         font: str = None,
+        font_size: Union[int, float] = 8.0,
         figsize: Tuple[float, float] = (10, 8),
         dpi: int = 100
     ):
+        plt.rcParams['pdf.fonttype'] = 42
+        plt.rcParams['font.size'] = font_size
+        if font is not None:
+            plt.rcParams['font.family'] = font
         self.spacing = spacing
         chr_len_dict, chr_theta_dict, chr_width_dict = self.__get_chr_theta_width(chr_len_file)
         self.chr_len_dict = chr_len_dict
@@ -124,8 +130,8 @@ class ChromosomeCircos:
 
     def chr_bar(
         self,
-        height: Union[int, float] = 1.0,
-        bottom: Union[int, float, list] = 10.0,
+        bottom: Union[int, float, list],
+        height: Union[int, float],
         face_color: str = 'lightgrey',
         edge_color: str = 'black',
         line_width: Union[int, float] = 0.5,
@@ -143,9 +149,6 @@ class ChromosomeCircos:
                  axes -> Axes object in matplotlib.
                  BarContainer -> Chromosome bar container.
         """
-        plt.rcParams['pdf.fonttype'] = 42
-        if self.font:
-            plt.rcParams['font.family'] = self.font
         self.figure = plt.figure(figsize=self.figsize, dpi=self.dpi)
         ax = self.figure.add_subplot(111, polar=True, frame_on=False)
         ax.get_xaxis().set_visible(False)  # hide x-axis
@@ -185,7 +188,8 @@ class ChromosomeCircos:
         self,
         axes: matplotlib.axes.Axes,
         stat_file: str,
-        bottom: Union[int, float, list] = 11.05,
+        bottom: Union[int, float, list],
+        height: Union[int, float],
         frame: bool = False
     ) -> matplotlib.axes.Axes:
         """
@@ -193,6 +197,7 @@ class ChromosomeCircos:
         :param axes: Axes object of matplotlib.axes.Axes.
         :param stat_file: Feature statistics file. (ChrName\\tFeatureType\\tCount\\tColor\\n)
         :param bottom: Y-axis coordinate bottom of statistical bar chart for each chromosome.
+        :param height: Height of statistical bar.
         :param frame: Show frame.
         :return: axes -> Axes object of matplotlib.axes.Axes.
         """
@@ -200,7 +205,7 @@ class ChromosomeCircos:
         if frame:
             self.__bar_frame(
                 axes=axes,
-                height=1.1,
+                height=height + height / 10,
                 bottom=[i - 0.05 for i in bottom_dict.values()],
                 face_color='white',
                 edge_color='black',
@@ -229,7 +234,7 @@ class ChromosomeCircos:
             bar_width = chr_width / total_bar_num
             x0 = chr_theta - chr_width / 2 + 3 / 2 * bar_width
             x = [x0 + i * bar_width for i in range(len(d['type']))]
-            height = [d['count'][i] / max(all_count) for i in range(len(d['type']))]
+            height_list = [d['count'][i] / max(all_count) for i in range(len(d['type']))]
             label = d['type']
             color = d['color']
             for i in range(len(d['type'])):
@@ -240,7 +245,7 @@ class ChromosomeCircos:
                     _label = None
                 axes.bar(
                     x[i],
-                    height[i],
+                    height_list[i] * height,
                     bar_width,
                     bottom_dict[chr_name],
                     color=color[i],
@@ -253,69 +258,50 @@ class ChromosomeCircos:
         self,
         gene_density_file: str,
         axes: matplotlib.axes.Axes,
-        bottom: Union[int, float, list] = 8.5,
-        line_width: Union[int, float] = 0.3,
+        bottom: Union[int, float, list],
+        height: Union[int, float],
+        line_width: Union[int, float],
         color: str = None,
         label: str = 'gene density',
         frame: bool = True
     ) -> matplotlib.axes.Axes:
         """
-        Draw gene density with line.
+        Draw gene density with curve.
         :param gene_density_file: Gene density file. (ChrName\\tStart\\tEnd\\tCount\\n)
         :param axes: Axes object of matplotlib.axes.Axes.
         :param bottom: Y-axis coordinate bottom of gene density chart for each chromosome.
+        :param height: Curve height.
         :param line_width: Gene density curve width for each chromosome.
         :param color: Gene density plot color.
         :param label: Gene density plot label.
         :param frame: Whether draw borders.
         :return: axes -> Axes object of matplotlib.axes.Axes.
         """
-        y = []
-        line_count = 0
-        label_set = set()
-        current_chr = None
         bottom_dict = self.__get_bottom_dict(bottom)
-        total_line = sum(1 for _ in open(gene_density_file))
-        with open(gene_density_file) as f:
-            for line in f:
-                line_count += 1
-                split = line.strip().split('\t')
-                if line_count != total_line:
-                    if current_chr is None:
-                        current_chr = split[0]
-                        y.append(float(split[-1]))
-                    else:
-                        if current_chr != split[0]:
-                            current_bottom = bottom_dict[current_chr]
-                            x = linspace(
-                                start=self.chr_theta_dict[current_chr] - self.chr_width_dict[current_chr] / 2,
-                                stop=self.chr_theta_dict[current_chr] + self.chr_width_dict[current_chr] / 2,
-                                num=len(y)
-                            )
-                            y = [current_bottom + 0.05 + i / max(y) for i in y]
-                            if label not in label_set:
-                                _label = label
-                                label_set.add(_label)
-                            else:
-                                _label = None
-                            axes.plot(x, y, linewidth=line_width, color=color, label=_label)
-                            current_chr = split[0]
-                            y = [float(line.strip().split('\t')[-1])]
-                        else:
-                            y.append(float(line.strip().split('\t')[-1]))
-                else:
-                    current_bottom = bottom_dict[current_chr]
-                    x = linspace(
-                        start=self.chr_theta_dict[current_chr] - self.chr_width_dict[current_chr] / 2,
-                        stop=self.chr_theta_dict[current_chr] + self.chr_width_dict[current_chr] / 2,
-                        num=len(y)
-                    )
-                    y = [current_bottom + 0.05 + i / max(y) for i in y]
-                    axes.plot(x, y, linewidth=line_width, color=color)
+        df = pandas.read_csv(gene_density_file, sep='\t', header=None, names=['Chr', 'Start', 'End', 'Count'])
+        df['theta'] = df['Chr'].map(self.chr_theta_dict)
+        df['width'] = df['Chr'].map(self.chr_width_dict)
+        df['x_s'] = df['theta'] - df['width'] / 2
+        df['x_e'] = df['theta'] + df['width'] / 2
+        df['bottom'] = df['Chr'].map(bottom_dict)
+        df['y'] = df.groupby('Chr')['Count'].transform(lambda value: value / value.max())
+        df['Y'] = df['bottom'] + df['y'] * height
+
+        label_set = set()
+        for _, grouped_df in df.groupby('Chr'):
+            X = linspace(start=grouped_df.x_s.unique()[0], stop=grouped_df.x_e.unique()[0], num=len(grouped_df))
+            Y = grouped_df['Y']
+            if label_set:
+                _label = None
+            else:
+                label_set.add(label)
+                _label = label
+            axes.plot(X, Y, linewidth=line_width, color=color, label=_label)
+
         if frame:
             self.__bar_frame(
                 axes=axes,
-                height=1.15,
+                height=height + 0.15,
                 bottom=[i - 0.05 for i in bottom_dict.values()],
                 face_color='white',
                 edge_color='black',
@@ -323,12 +309,12 @@ class ChromosomeCircos:
             )
         return axes
 
-    def plot2(
+    def density_heatmap(
         self,
         gene_density_file: str,
         axes: matplotlib.axes.Axes,
-        bottom: Union[int, float, list] = 7.5,
-        height: float = 1,
+        bottom: Union[int, float, list],
+        height: Union[int, float],
         linewidths: float = 0.1,
         cmap: str = 'cool',
         label: str = 'gene density',
@@ -349,7 +335,7 @@ class ChromosomeCircos:
         :return: axes -> Axes object of matplotlib.axes.Axes.
         """
         bottom_dict = self.__get_bottom_dict(bottom)
-        df = read_csv(gene_density_file, sep='\t', header=None, names=['Chr', 'Start', 'End', 'Count'])
+        df = pandas.read_csv(gene_density_file, sep='\t', header=None, names=['Chr', 'Start', 'End', 'Count'])
         df['X-coordinate'] = df.apply(func=lambda row: self.__loci_to_polar(row.Chr, row.Start, row.End), axis=1)
         for chr_name in df.Chr.unique():
             df.loc[df.Chr == chr_name, 'Y-coordinate'] = bottom_dict[chr_name]
@@ -387,7 +373,71 @@ class ChromosomeCircos:
         cbar.ax.set_xticks([n_min, n_max], ['low', 'high'])
         return axes
 
-# link method===========================================================================================================
+# sequence identity heatmap=============================================================================================
+    def __transform(self, row: pandas.Series, bottom_dict: dict) -> pandas.Series:
+        row['x1'] = self.__loci_to_polar(chr_name=row.Chr1, start=row.Start1, end=row.End1)
+        row['x2'] = self.__loci_to_polar(chr_name=row.Chr2, start=row.Start2, end=row.End2)
+        row['X'] = (row.x1 + row.x2) / 2
+        row['dif_x'] = abs(row.x1 - row.x2)
+        row['Y'] = bottom_dict[row.Chr1]
+        return row
+
+    def identity_heatmap(
+        self,
+        cis_acting_file: str,
+        matches_cutoff: int,
+        axes: matplotlib.axes.Axes,
+        bottom: Union[int, float, list],
+        height: Union[int, float],
+        marker_size: float,
+        cmap: str = 'YlOrRd'
+    ) -> matplotlib.axes.Axes:
+        bottom_dict = self.__get_bottom_dict(bottom)
+        raw_df = pandas.read_csv(
+            cis_acting_file,
+            sep='\t',
+            header=None,
+            names=['Chr1', 'Start1', 'End1', 'Chr2', 'Start2', 'End2', 'Identity', 'Matches']
+        )
+        df = raw_df[(raw_df.Chr1 == raw_df.Chr2) & (raw_df.Matches >= matches_cutoff)]
+        df = df.apply(
+            axis=1,
+            func=partial(
+                self.__transform,
+                bottom_dict=bottom_dict
+            )
+        )
+        df['Y'] += (df['dif_x'] / df['dif_x'].max()) * height
+        df['c'] = df['Identity'] * df['Matches']
+        df['C'] = df['c'] / df['c'].max() * 100
+
+        ret = axes.scatter(
+            x='X',
+            y='Y',
+            s=marker_size,
+            c='C',
+            marker='o',
+            cmap=cmap,
+            data=df,
+            label=None
+        )
+
+        # add color bar
+        figure_width, figure_height = self.figsize
+        aspect_ratio = figure_width / figure_height
+        cbar = plt.colorbar(
+            mappable=ret,
+            orientation='horizontal',
+            pad=0.005,
+            shrink=0.5,
+            aspect=aspect_ratio * 100,
+            label='Identity'
+        )
+        cbar.ax.set_xticks([df['C'].min(), df['C'].max()], ['low', 'high'])
+
+        return axes
+
+# link method==================================================================================================
     @staticmethod
     def __coordinates_conversion(theta: float, radius: float) -> List[float]:
         """
@@ -475,7 +525,7 @@ class ChromosomeCircos:
         self,
         axes: matplotlib.axes.Axes,
         link_file: str,
-        bottom: Union[int, float, list] = 7,
+        bottom: Union[int, float, list],
         line_width: float = 0.6,
         alpha: float = 0.5
     ) -> matplotlib.axes.Axes:
