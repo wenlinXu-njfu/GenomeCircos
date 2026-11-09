@@ -5,12 +5,13 @@ CreateDate: 2025/7/9
 Author: xuwenlin
 E-mail: wenlinxu.njfu@outlook.com
 """
-from typing import Union, Tuple, List, Dict
+from typing import Union, Tuple, List, Dict, Literal, Optional
 from functools import partial
 from math import log2, cos, sin
-from numpy import pi, linspace, array
+from numpy import pi, linspace, array, mean
 import pandas
 import matplotlib
+import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 
@@ -20,14 +21,15 @@ class ChromosomeCircos:
     :param chr_len_file: Chromosome length file. (ChrName\\tChrLen\\tEtc)
     :param spacing: Set the spacing between chromosomes to be one quarter (spacing=4) of the shortest chromosome.
     :param font: Global font of figure.
+    :param font_size: Global font size.
     :param figsize: Figure dimension (width, height) in inches.
     :param dpi: Dots per inch.
     """
     def __init__(
         self,
         chr_len_file: str,
-        spacing: int = 4,
-        font: str = None,
+        spacing: Union[int, float] = 4,
+        font: Optional[str] = None,
         font_size: Union[int, float] = 8.0,
         figsize: Tuple[float, float] = (10, 8),
         dpi: int = 100
@@ -133,9 +135,9 @@ class ChromosomeCircos:
         bottom: Union[int, float, list],
         height: Union[int, float],
         face_color: str = 'lightgrey',
-        edge_color: str = 'black',
-        line_width: Union[int, float] = 0.5,
-        font_size: Union[int, float] = 6
+        edge_color: Optional[str] = None,
+        line_width: Optional[Union[int, float]] = None,
+        font_size: Optional[Union[int, float]] = None
     ) -> matplotlib.axes.Axes:
         """
         Draw chromosome bar.
@@ -261,30 +263,40 @@ class ChromosomeCircos:
         bottom: Union[int, float, list],
         height: Union[int, float],
         line_width: Union[int, float],
-        color: str = None,
+        color: Optional[str] = None,
+        line_alpha: Optional[Union[float, int]] = None,
         label: str = 'gene density',
-        frame: bool = True
+        normalize: Literal['intra', 'inter'] = 'inter',
+        **frame_kwargs
     ) -> matplotlib.axes.Axes:
         """
-        Draw gene density with curve.
+        Draw gene density with curve (the gene density will be normalized at the whole-genome level by default).
         :param gene_density_file: Gene density file. (ChrName\\tStart\\tEnd\\tCount\\n)
         :param axes: Axes object of matplotlib.axes.Axes.
         :param bottom: Y-axis coordinate bottom of gene density chart for each chromosome.
         :param height: Curve height.
         :param line_width: Gene density curve width for each chromosome.
         :param color: Gene density plot color.
+        :param line_alpha: Line transparency.
         :param label: Gene density plot label.
-        :param frame: Whether draw borders.
+        :param normalize: Gene density normalization method (intra for intrachromosomal or inter for interchromosomal).
+        :param frame_kwargs: Background frame attribute dict.
         :return: axes -> Axes object of matplotlib.axes.Axes.
         """
         bottom_dict = self.__get_bottom_dict(bottom)
         df = pandas.read_csv(gene_density_file, sep='\t', header=None, names=['Chr', 'Start', 'End', 'Count'])
+        max_count = df['Count'].max()
         df['theta'] = df['Chr'].map(self.chr_theta_dict)
         df['width'] = df['Chr'].map(self.chr_width_dict)
         df['x_s'] = df['theta'] - df['width'] / 2
         df['x_e'] = df['theta'] + df['width'] / 2
         df['bottom'] = df['Chr'].map(bottom_dict)
-        df['y'] = df.groupby('Chr')['Count'].transform(lambda value: value / value.max())
+        if normalize == 'inter':
+            df['y'] = df['Count'].transform(lambda value: value / max_count)
+        elif normalize == 'intra':
+            df['y'] = df.groupby('Chr')['Count'].transform(lambda value: value / value.max())
+        else:
+            raise ValueError(f'Invalid gene density normalization method "{normalize}". Supported method: "intra" and "inter".')
         df['Y'] = df['bottom'] + df['y'] * height
 
         label_set = set()
@@ -296,17 +308,18 @@ class ChromosomeCircos:
             else:
                 label_set.add(label)
                 _label = label
-            axes.plot(X, Y, linewidth=line_width, color=color, label=_label)
+            axes.plot(X, Y, linewidth=line_width, color=color, alpha=line_alpha, label=_label)
 
-        if frame:
-            self.__bar_frame(
-                axes=axes,
-                height=height + 0.15,
-                bottom=[i - 0.05 for i in bottom_dict.values()],
-                face_color='white',
-                edge_color='black',
-                line_width=line_width
-            )
+        if frame_kwargs is not None:
+            for chr_name in self.chr_len_dict.keys():
+                axes.add_patch(
+                    patches.Rectangle(
+                        xy=(self.chr_theta_dict[chr_name] - self.chr_width_dict[chr_name] / 2, bottom_dict[chr_name]),
+                        width=self.chr_width_dict[chr_name],
+                        height=height,
+                        **frame_kwargs
+                    )
+                )
         return axes
 
     def density_heatmap(
@@ -319,7 +332,13 @@ class ChromosomeCircos:
         cmap: str = 'cool',
         label: str = 'gene density',
         n_min: int = 0,
-        n_max: int = 100
+        n_max: int = 100,
+        orientation: Literal['horizontal', 'vertical'] = 'horizontal',
+        anchor: tuple = (0.5, 0.5),
+        aspect: Optional[Union[float, int]] = None,
+        shrink: float = 0.5,
+        pad: float = 0.0005,
+        font_size: Optional[Union[float, int]] = None
     ) -> matplotlib.axes.Axes:
         """
         Draw gene density with line.
@@ -332,6 +351,12 @@ class ChromosomeCircos:
         :param label: Gene density plot label.
         :param n_min: The data value mapped to the bottom of the colormap (i.e. 0).
         :param n_max: The data value mapped to the top of the colormap (i.e. 1).
+        :param font_size: Color bar ticks font size.
+        :param orientation: Color bar orientation.
+        :param anchor: The anchor point of colorbar. (Used for anchoring the position of the color bar)
+        :param aspect: Control the aspect ratio of each color block in the color bar, which in turn affects the thickness of the color bar.
+        :param shrink: Scale the length of the color bar proportionally. (Height in vertical color bars and width in horizontal color bars)
+        :param pad: Adjust the blank space between the color bar and the Axes it belongs to.
         :return: axes -> Axes object of matplotlib.axes.Axes.
         """
         bottom_dict = self.__get_bottom_dict(bottom)
@@ -360,28 +385,28 @@ class ChromosomeCircos:
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
         sm.set_array([])
         figure_width, figure_height = self.figsize
-        aspect_ratio = figure_width / figure_height
+        if aspect is None:
+            aspect = figure_width / figure_height * 20
         cbar = plt.colorbar(
             mappable=sm,
             ax=axes,
-            pad=0.0005,
-            orientation='horizontal',
-            shrink=0.5,
-            aspect=aspect_ratio * 80,
-            label=label
+            pad=pad,
+            orientation=orientation,
+            shrink=shrink,
+            aspect=aspect,
+            anchor=anchor
         )
-        cbar.ax.set_xticks([n_min, n_max], ['low', 'high'])
+        if orientation == 'horizontal':
+            cbar.ax.set_xticks([n_min, n_max], ['low', 'high'], fontsize=font_size)
+            cbar.ax.set_xlabel(label, fontsize=font_size)
+        elif orientation == 'vertical':
+            cbar.ax.set_yticks([n_min, n_max], ['low', 'high'], fontsize=font_size)
+            cbar.ax.set_ylabel(label, fontsize=font_size)
+        else:
+            raise ValueError(f'Invalid gene density normalization method "{orientation}". Supported method: "horizontal" and "vertical".')
         return axes
 
 # sequence identity heatmap=============================================================================================
-    def __transform(self, row: pandas.Series, bottom_dict: dict) -> pandas.Series:
-        row['x1'] = self.__loci_to_polar(chr_name=row.Chr1, start=row.Start1, end=row.End1)
-        row['x2'] = self.__loci_to_polar(chr_name=row.Chr2, start=row.Start2, end=row.End2)
-        row['X'] = (row.x1 + row.x2) / 2
-        row['dif_x'] = abs(row.x1 - row.x2)
-        row['Y'] = bottom_dict[row.Chr1]
-        return row
-
     def identity_heatmap(
         self,
         cis_acting_file: str,
@@ -390,7 +415,13 @@ class ChromosomeCircos:
         bottom: Union[int, float, list],
         height: Union[int, float],
         marker_size: float,
-        cmap: str = 'YlOrRd'
+        cmap: str = 'YlOrRd',
+        label: str = 'sequence identity',
+        n_min: int = 0,
+        n_max: int = 100,
+        orientation: Literal['horizontal', 'vertical'] = 'horizontal',
+        anchor: tuple = (0.5, 0.5),
+        font_size: Optional[Union[float, int]] = None
     ) -> matplotlib.axes.Axes:
         bottom_dict = self.__get_bottom_dict(bottom)
         raw_df = pandas.read_csv(
@@ -399,14 +430,18 @@ class ChromosomeCircos:
             header=None,
             names=['Chr1', 'Start1', 'End1', 'Chr2', 'Start2', 'End2', 'Identity', 'Matches']
         )
-        df = raw_df[(raw_df.Chr1 == raw_df.Chr2) & (raw_df.Matches >= matches_cutoff)]
-        df = df.apply(
-            axis=1,
-            func=partial(
-                self.__transform,
-                bottom_dict=bottom_dict
-            )
-        )
+        df = raw_df[(raw_df.Chr1 == raw_df.Chr2) & (raw_df.Matches >= matches_cutoff)].copy()
+
+        # Vectorized coordinate conversion (equivalent to the previous per-row apply).
+        theta = df['Chr1'].map(self.chr_theta_dict)
+        width = df['Chr1'].map(self.chr_width_dict)
+        length = df['Chr1'].map(self.chr_len_dict)
+        angle = theta - width / 2
+        x1 = (df['Start1'] + df['End1']) / 2 / length * width + angle
+        x2 = (df['Start2'] + df['End2']) / 2 / length * width + angle
+        df['X'] = (x1 + x2) / 2
+        df['dif_x'] = (x1 - x2).abs()
+        df['Y'] = df['Chr1'].map(bottom_dict)
         df['Y'] += (df['dif_x'] / df['dif_x'].max()) * height
         df['c'] = df['Identity'] * df['Matches']
         df['C'] = df['c'] / df['c'].max() * 100
@@ -427,13 +462,21 @@ class ChromosomeCircos:
         aspect_ratio = figure_width / figure_height
         cbar = plt.colorbar(
             mappable=ret,
-            orientation='horizontal',
+            ax=axes,
+            orientation=orientation,
             pad=0.005,
             shrink=0.5,
-            aspect=aspect_ratio * 100,
-            label='Identity'
+            aspect=aspect_ratio * 20,
+            anchor=anchor
         )
-        cbar.ax.set_xticks([df['C'].min(), df['C'].max()], ['low', 'high'])
+        if orientation == 'horizontal':
+            cbar.ax.set_xticks([n_min, n_max], ['low', 'high'], fontsize=font_size)
+            cbar.ax.set_xlabel(label, fontsize=font_size)
+        elif orientation == 'vertical':
+            cbar.ax.set_yticks([n_min, n_max], ['low', 'high'], fontsize=font_size)
+            cbar.ax.set_ylabel(label, fontsize=font_size)
+        else:
+            raise ValueError(f'Invalid gene density normalization method "{orientation}". Supported method: "horizontal" and "vertical".')
 
         return axes
 
@@ -476,7 +519,7 @@ class ChromosomeCircos:
         y2: float,
         line_width: float = 0.6,
         line_color: str = 'grey',
-        label: str = None,
+        label: Optional[str] = None,
         alpha: float = 0.5
     ) -> matplotlib.axes.Axes:
         """
@@ -565,5 +608,183 @@ class ChromosomeCircos:
                     line_color=color,
                     label=label,
                     alpha=alpha
+                )
+        return axes
+
+    def link_region(
+        self,
+        axes: matplotlib.axes.Axes,
+        chr1: str,
+        s1: int,
+        e1: int,
+        y1: Union[float, int],
+        chr2: str,
+        s2: int,
+        e2: int,
+        y2: Union[float, int],
+        line_width: Optional[Union[float, int]] = None,
+        line_color: str = 'grey',
+        line_alpha: Union[float, int] = 1,
+        fill_color: str = 'grey',
+        fill_alpha: Union[float, int] = 0.6,
+        label: Optional[str] = None,
+        label_color: Optional[str] = None,
+        label_alpha: Optional[Union[float, int]] = None,
+        label_size: Optional[Union[float, int]] = 6
+    ) -> matplotlib.axes.Axes:
+        """
+        Connect the starting and ending positions of two loci in the genome
+        with two second-order Bézier curves and fill in the regions.
+        """
+        def loci_to_polar_start_end(chr_name: str, start: int, end: int) -> tuple:
+            chr_angle = self.chr_theta_dict[chr_name]
+            chr_width = self.chr_width_dict[chr_name]
+            chr_length = self.chr_len_dict[chr_name]
+            start_angle = chr_angle - chr_width / 2 + (start / chr_length) * chr_width
+            end_angle = chr_angle - chr_width / 2 + (end / chr_length) * chr_width
+
+            return start_angle, end_angle
+
+        # Calculate the starting and ending angles of the two sites
+        start_angle1, end_angle1 = loci_to_polar_start_end(chr1, s1, e1)
+        start_angle2, end_angle2 = loci_to_polar_start_end(chr2, s2, e2)
+
+        # Use the average of the two radii as the radius of the control point
+        control_radius = 0
+
+        # Create the first Bézier curve (connect the starting position)
+        # The starting position of starting site 1 -> the starting position of starting site 2
+        P0_start = array(self.__coordinates_conversion(start_angle1, y1))
+        P2_start = array(self.__coordinates_conversion(start_angle2, y2))
+
+        # Control point: Use the midpoint between the two starting angles, with the radius set to control_radius
+        # Adjust the radius of the control points to avoid excessive bending
+        mid_angle_start = (start_angle1 + start_angle2) / 2
+        # Adjust the radius of the control point according to the Angle difference to avoid the curve passing through the center of the circle
+        angle_diff = abs(start_angle2 - start_angle1)
+        if angle_diff > pi:
+            angle_diff = 2 * pi - angle_diff
+
+        # The radius of the control points is adjusted based on the Angle difference
+        adjusted_control_radius = max(control_radius * 0.7, min(y1, y2) * 0.8)
+        if angle_diff < pi / 2:
+            adjusted_control_radius = control_radius * 1.2
+
+        P1_start = array(self.__coordinates_conversion(mid_angle_start, adjusted_control_radius))
+
+        # Calculate the points on the first Bézier curve
+        x_curve1, y_curve1 = self.__bezier_curve(P0_start, P1_start, P2_start)
+
+        # Create the second Bézier curve (connection end position)
+        # The end position of starting point 1 -> the end position of starting point 2
+        P0_end = array(self.__coordinates_conversion(end_angle1, y1))
+        P2_end = array(self.__coordinates_conversion(end_angle2, y2))
+
+        # Control point: Use the midpoint between two ending angles, with the radius set to control_radius
+        mid_angle_end = (end_angle1 + end_angle2) / 2
+        P1_end = array(self.__coordinates_conversion(mid_angle_end, adjusted_control_radius))
+
+        # Calculate the points on the second Bézier curve
+        x_curve2, y_curve2 = self.__bezier_curve(P0_end, P1_end, P2_end)
+
+        # Fill in the area between the two curves
+        # Create a closed polygon: Curve 1 + the opposite of curve 2
+        polygon_points = []
+        for x, y in zip(x_curve1, y_curve1):
+            polygon_points.append([x, y])
+        for x, y in zip(reversed(x_curve2), reversed(y_curve2)):
+            polygon_points.append([x, y])
+        polygon = patches.Polygon(
+            polygon_points,
+            closed=True,
+            facecolor=fill_color,
+            alpha=fill_alpha,
+            edgecolor='none',
+            transform=axes.transData._b,
+            zorder=1
+        )
+        axes.add_patch(polygon)
+
+        # Draw two Bézier curves (optional)
+        if line_width is not None:
+            # plot first Bézier curve
+            axes.plot(
+                x_curve1,
+                y_curve1,
+                transform=axes.transData._b,
+                linewidth=line_width,
+                color=line_color,
+                alpha=line_alpha,
+                zorder=2
+            )
+            # plot second Bézier curve
+            axes.plot(
+                x_curve2,
+                y_curve2,
+                transform=axes.transData._b,
+                linewidth=line_width,
+                color=line_color,
+                alpha=line_alpha,
+                zorder=2
+            )
+
+        # add label
+        if label is not None:
+            center_x = (mean(x_curve1) + mean(x_curve2)) / 2
+            center_y = (mean(y_curve1) + mean(y_curve2)) / 2
+            axes.text(
+                center_x, center_y,
+                label,
+                transform=axes.transData._b,
+                fontsize=label_size,
+                ha='center',
+                va='center',
+                color=label_color,
+                alpha=label_alpha,
+                zorder=3
+            )
+
+        return axes
+
+    def link_regions(
+        self,
+        axes: matplotlib.axes.Axes,
+        link_file: str,
+        bottom: Union[int, float, list],
+        fill_alpha: Union[float, int] = 0.6,
+        line_width: Optional[Union[float, int]] = None,
+        line_alpha: Union[float, int] = 1,
+        region_label: bool = False,
+        font_size: Optional[Union[float, int]] = 6
+    ) -> matplotlib.axes.Axes:
+        bottom_dict = self.__get_bottom_dict(bottom)
+        label_set = set()
+        with open(link_file) as f:
+            for line in f:
+                split = line.strip().split('\t')
+                chr1, start1, end1 = split[0], int(split[1]), int(split[2])
+                chr2, start2, end2 = split[3], int(split[4]), int(split[5])
+                color, label = split[6], split[7]
+                if label in label_set or not region_label:
+                    label = None
+                label_set.add(label)
+                self.link_region(
+                    axes=axes,
+                    chr1=chr1,
+                    s1=start1,
+                    e1=end1,
+                    y1=bottom_dict[chr1],
+                    chr2=chr2,
+                    s2=start2,
+                    e2=end2,
+                    y2=bottom_dict[chr2],
+                    fill_color=color,
+                    fill_alpha=fill_alpha,
+                    line_color=color,
+                    line_width=line_width,
+                    line_alpha=line_alpha,
+                    label=label,
+                    label_color=color,
+                    label_size=font_size
                 )
         return axes
