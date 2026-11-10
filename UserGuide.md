@@ -487,7 +487,7 @@ cc.density_heatmap(
 ax.legend(loc=(0.999, 0.7))
 cc.save('example/9.png')
 ```
-![image](https://github.com/wenlinXu-njfu/GenomeCircos/blob/main/example/8.png?raw=true)
+![image](https://github.com/wenlinXu-njfu/GenomeCircos/blob/main/example/9.png?raw=true)
 
 **Tips: Use the "bottom" parameter of each plotting function to control the distance between each circle in the Circos graph.**
 
