@@ -311,6 +311,85 @@ ax.legend(loc=(0.999, 0.6))
 cc.save('example/7.png')
 ```
 ![image](https://github.com/wenlinXu-njfu/GenomeCircos/blob/main/example/7.png?raw=true)
+**Show hypothetical inversion**
+```python
+from genome_circos import ChromosomeCircos
+
+cc = ChromosomeCircos(
+    chr_len_file='example/chr_len.txt',  # chromosome length file (ChrName\tChrLen\tEtc)
+    spacing=4,  # set the spacing between chromosomes to be one quarter of the shortest chromosome
+    font=None,  # use default font of matplotlib.rcParams['font.family']
+    font_size=8,  # global font size
+    figsize=(10, 8),  # figure dimension (width, height) in inches
+    dpi=120  # dots per inch
+)
+
+bottom = [9, 9, 9, 9, 9, 10, 9, 9, 9, 9, 11, 9, 9, 9, 9, 9, 9, 9, 10]
+
+ax = cc.chr_bar(
+    height=1,  # chromosome bar height
+    bottom=bottom,  # chromosome bar bottom y-axis coordinate
+    face_color='lightgrey',  # chromosome bar fill colr
+    edge_color='black',  # chromosome bar border colr
+    line_width=0.4,  # chromosome bar border width
+    font_size=10  # chromosome name font size
+)
+
+cc.bar(
+    axes=ax,  # axes object of matplotlib.axes.Axes.
+    stat_file='example/stat.txt',  # feature statistics file (ChrName\tFeatureType\tCount\tColor)
+    bottom=[i + 1.2 for i in bottom],  # bottom y-axis coordinate of statistic bar on each chromosome
+    height=1,  # height of statistical bar
+    frame=False  # add borders to the bar charts on each chromosome
+)
+
+cc.plot(
+    gene_density_file='example/gene_density.txt',  # feature density file (ChrName\tStart\tEnd\tCount)
+    axes=ax,
+    bottom=[i - 1.5 for i in bottom],  # y-axis coordinate bottom of gene density chart for each chromosome
+    height=1,  # curve height
+    line_width=0.8,  # gene density curve width for each chromosome.
+    color='steelblue',  # density curve color
+    label='gene density',  # density curve label
+    **{'facecolor': 'lightgrey', 'alpha': 0.5}  # background frame attribute dict
+)
+
+cc.plot(
+    gene_density_file='example/circ_density.txt',
+    axes=ax,
+    bottom=[i - 3 for i in bottom],
+    height=1,  # curve height
+    line_width=0.8,  # gene density curve width for each chromosome.
+    color='SeaGreen',
+    label='circRNA density',
+    **{'facecolor': 'lightgrey', 'alpha': 0.5}  # background frame attribute dict
+)
+
+cc.link_region(
+    axes=ax,
+    chr1='Chr01',
+    s1=12000000,
+    e1=13000000,
+    y1=5.9,
+    chr2='Chr03',
+    s2=5000000,
+    e2=10000000,
+    y2=5.9,
+    line_width=1,
+    line_color='tomato',
+    line_alpha=None,
+    fill_color='tomato',
+    fill_alpha=0.6,
+    label='inversion',
+    label_color='black',
+    label_alpha=1,
+    label_size=8
+)
+
+ax.legend(loc=(0.999, 0.6))
+cc.save('example/8.png')
+```
+![image](https://github.com/wenlinXu-njfu/GenomeCircos/blob/main/example/8.png?raw=true)
 
 ## 5. All steps.
 ```python
@@ -365,7 +444,7 @@ cc.plot(
     height=1,
     line_width=0.5,
     color='steelblue',
-    label='repeat sequence density',
+    label='circRNA density',
     **{'facecolor': 'lightgrey', 'alpha': 0.5}  # background frame attribute dict
 )
 
@@ -406,7 +485,7 @@ cc.density_heatmap(
 )
 
 ax.legend(loc=(0.999, 0.7))
-cc.save('example/8.png')
+cc.save('example/9.png')
 ```
 ![image](https://github.com/wenlinXu-njfu/GenomeCircos/blob/main/example/8.png?raw=true)
 
